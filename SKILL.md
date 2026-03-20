@@ -111,7 +111,7 @@ var G = {
 ### Articulate Storyline extraction (`extractArt`)
 - Iterates `html5/data/js/*.js` files
 - Skips library/framework files matching: `SKIP_JS = /\.(min\.js)$|ds-bootstrap|ds-slides|ds-frame|jquery|modernizr|require/i`
-- Only processes files containing `globalProvideData`
+- Only processes files containing `globalProvideData('slide'` — this is critical. `data.js`, `frame.js` and `paths.js` also call `globalProvideData` but with types `'data'`, `'frame'`, `'paths'`. These contain player UI labels stored as raw HTML (e.g. `<p dir='ltr' align='left' style="...">Resume</p>`) which would leak into the output as rogue markup if not excluded.
 - Extracts `"title"` and all `"altText"` values from the JSON payload
 - Filters out: image filenames, shape names (Rectangle, Pentagon, Group etc.), `%_player` template variables, strings under 10 chars, strings identical to the slide title
 - Dedupes by first 80 chars of each text string

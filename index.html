@@ -557,15 +557,18 @@ async function extractArt(zip,jsList){
   for(var i=0;i<jsList.length;i++){
     if(SKIP_JS.test(jsList[i])) continue;
     var c=await zip.file(jsList[i]).async('string');
-    if(!c.includes('globalProvideData')) continue;
+    // Only process actual slide files — 'data', 'frame', 'paths' etc contain player/UI HTML not course content
+    if(!c.includes("globalProvideData('slide'")) continue;
     var tm=c.match(/"title":"(.*?)"/);
     var title=tm?tm[1]:'';
+    title=cleanText(title);
     if(SKIP.some(function(k){return title.includes(k);})) continue;
     var ms=c.match(/"altText":"(.*?)"(?=[,}])/g)||[];
     var texts=[];
     ms.forEach(function(m){
       var t=m.replace(/^"altText":"/, '').replace(/"$/, '');
       t=t.replace(/\\\\n/g,'\n').replace(/\\n/g,'\n').replace(/\\\\r/g,'').replace(/\\r/g,'').replace(/\\\\"/g,'"').replace(/\\'/g,"'").trim();
+      t=cleanText(t);
       if(/\.(jpg|png|svg|mp4|swf|gif)$/i.test(t)) return;
       if(/^(Rectangle|Pentagon|Group|Oval|Circle|Line|Arrow|Button|Text Box|Freeform|Round Same|kisspng|shutterstock)/i.test(t)) return;
       if(t.includes('%_player')) return;
@@ -611,6 +614,24 @@ async function extractStd(zip,xml,mfPath){
     }
   }
   return out;
+}
+
+// ── Text cleaning: strip HTML tags + decode entities ─────────────────────
+// Applied to all extracted altText values and slide titles.
+// Handles cases where Articulate embeds raw HTML markup in altText fields
+// (e.g. "<p dir='ltr' align='left' style=...>Label</p>") and decodes
+// common HTML entities that survive the JSON unescape step.
+function cleanText(t){
+  if(!t) return '';
+  // Strip HTML tags
+  t = t.replace(/<[^>]+>/g, ' ');
+  // Decode HTML entities
+  t = t.replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&lt;/g,'<')
+       .replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'");
+  // Remove any leftover backslash-escaped quote sequences that leaked through JSON layers
+  t = t.replace(/\\'/g,"'").replace(/\\"/g,'"');
+  // Collapse whitespace
+  return t.replace(/\s{2,}/g,' ').trim();
 }
 
 function stripHtml(h){
