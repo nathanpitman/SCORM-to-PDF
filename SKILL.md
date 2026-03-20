@@ -4,9 +4,9 @@
 
 A single-file, zero-dependency static web app (`index.html`) that extracts text content from SCORM eLearning packages and produces a downloadable PDF. It is deployed to GitHub Pages and requires no build step, no server, and no backend.
 
-The tool was built specifically for iHASCO (part of Citation Group) to support an AI course creation workflow: SCORM packages are converted to readable PDF documents which can then be ingested by an AI course creator.
+The tool was built specifically for iHasco (part of Citation Group) to support an AI course creation workflow: SCORM packages are converted to readable PDF documents which can then be ingested by an AI course creator.
 
-**Deployed URL:** `https://iHASCO.github.io/scorm-to-pdf`  
+**Deployed URL:** `https://nathanpitman.github.io/scorm-to-pdf`  
 **Repository:** Single file — `index.html` at the repo root.
 
 ---
@@ -162,7 +162,7 @@ Fonts:      Helvetica (F1, body) and Helvetica-Bold (F2, headings) — standard 
 ### Footer (every page)
 ```
 Left:   "Generated from a SCORM package using SCORM → PDF Tool"  (8pt, grey)
-Below:  "https://iHASCO.github.io/scorm-to-pdf"  (8pt, terracotta #CC785C)
+Below:  "https://nathanpitman.github.io/scorm-to-pdf"  (8pt, terracotta #CC785C)
 Right:  "Page X of Y"  (8pt, grey)
 Above:  hairline rule at y=40
 ```
