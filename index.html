@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SCORM → PDF — Course Content Extractor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,400;0,500;1,400&family=Geist:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:           #FAF9F7;
+  --surface:      #FFFFFF;
+  --surface-alt:  #F5F3EF;
+  --border:       #E8E4DC;
+  --border-mid:   #D4CFC5;
+  --text:         #1A1814;
+  --text-mid:     #5C5751;
+  --text-dim:     #9C9690;
+  --accent:       #CC785C;
+  --accent-light: #F5EDE8;
+  --accent-dark:  #A85840;
+  --green:        #3D7A5A;
+  --green-light:  #EBF5EF;
+  --red:          #C0392B;
+  --amber:        #B45309;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow:    0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+  --radius-sm: 6px;
+  --radius:    10px;
+  --radius-lg: 16px;
+  --font-sans:  'Geist', -apple-system, 'Helvetica Neue', sans-serif;
+  --font-serif: 'Newsreader', 'Georgia', serif;
+}
+
+html { height: 100%; }
+body {
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+.app-wrap { max-width: 760px; margin: 0 auto; padding: 52px 24px 96px; }
+
+/* Header */
+.app-header { margin-bottom: 44px; }
+.app-logo { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.logo-mark {
+  width: 34px; height: 34px;
+  background: var(--text);
+  border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.logo-mark svg { width: 19px; height: 19px; }
+.logo-wordmark {
+  font-family: var(--font-serif);
+  font-size: 21px;
+  font-weight: 500;
+  color: var(--text);
+  letter-spacing: -0.025em;
+}
+.app-desc { font-size: 14px; color: var(--text-mid); max-width: 540px; line-height: 1.6; }
+
+/* Cards */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+.card-section { padding: 28px 32px; }
+.card-section + .card-section { border-top: 1px solid var(--border); }
+
+/* Step labels */
+.step-row { display: flex; align-items: center; gap: 10px; margin-bottom: 22px; }
+.step-badge {
+  width: 24px; height: 24px; border-radius: 50%;
+  background: var(--surface-alt); border: 1.5px solid var(--border-mid);
+  color: var(--text-mid); font-size: 12px; font-weight: 500;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; transition: all 0.2s;
+}
+.step-badge.active { background: var(--text); border-color: var(--text); color: var(--bg); }
+.step-badge.done   { background: var(--green); border-color: var(--green); color: white; }
+.step-heading { font-size: 15px; font-weight: 500; }
+.step-note { font-size: 12px; font-weight: 400; color: var(--text-dim); margin-left: 6px; }
+
+/* IP checkbox */
+.ip-label {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 16px 18px;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  margin-bottom: 18px;
+  user-select: none;
+}
+.ip-label:hover { border-color: var(--border-mid); }
+.ip-label.checked { background: var(--green-light); border-color: var(--green); }
+
+.ip-box-vis {
+  width: 18px; height: 18px; border-radius: 4px;
+  border: 1.5px solid var(--border-mid);
+  background: var(--surface);
+  flex-shrink: 0; margin-top: 1px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+}
+.ip-label.checked .ip-box-vis { background: var(--green); border-color: var(--green); }
+.ip-check-mark { display: none; }
+.ip-label.checked .ip-check-mark { display: block; }
+
+.ip-copy { font-size: 13px; color: var(--text-mid); line-height: 1.55; }
+.ip-copy strong { color: var(--text); font-weight: 500; }
+
+/* Drop zone */
+.drop-zone {
+  border: 1.5px dashed var(--border-mid);
+  border-radius: var(--radius);
+  padding: 40px 28px;
+  text-align: center;
+  background: var(--surface-alt);
+  transition: all 0.18s;
+  cursor: pointer;
+  position: relative;
+}
+.drop-zone.active-drop { cursor: default; }
+.drop-zone:not(.locked):hover, .drop-zone.drag-over {
+  border-color: var(--accent);
+  background: var(--accent-light);
+}
+.drop-zone.locked { cursor: not-allowed; opacity: 0.5; }
+.drop-zone input { display: none; }
+.drop-icon-wrap {
+  width: 44px; height: 44px; margin: 0 auto 14px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; box-shadow: var(--shadow-sm);
+  display: flex; align-items: center; justify-content: center;
+}
+.drop-icon-wrap svg { width: 20px; height: 20px; stroke: var(--accent); fill: none; stroke-width: 1.8; }
+.drop-title { font-size: 15px; font-weight: 500; margin-bottom: 4px; }
+.drop-sub { font-size: 13px; color: var(--text-dim); }
+.drop-locked-note { font-size: 12px; color: var(--amber); margin-top: 8px; display: none; }
+.drop-zone.locked .drop-locked-note { display: block; }
+
+/* Status bar */
+.status-bar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 15px;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 13px; color: var(--text-mid);
+  margin-top: 14px;
+}
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border-mid); flex-shrink: 0; transition: background 0.25s; }
+.dot.busy { background: var(--amber); animation: blink 1.1s ease-in-out infinite; }
+.dot.ok   { background: var(--green); }
+.dot.err  { background: var(--red); }
+@keyframes blink { 0%,100%{opacity:1}50%{opacity:0.3} }
+
+.prog-wrap { height: 3px; background: var(--border); border-radius: 2px; margin-top: 10px; overflow: hidden; display: none; }
+.prog-wrap.show { display: block; }
+.prog-bar { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.4s ease; width: 0%; }
+
+/* Buttons */
+.btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 9px 17px; border-radius: var(--radius-sm);
+  font-family: var(--font-sans); font-size: 14px; font-weight: 500;
+  border: 1px solid var(--border-mid); background: var(--surface); color: var(--text);
+  cursor: pointer; transition: all 0.12s; white-space: nowrap;
+}
+.btn:hover { background: var(--surface-alt); }
+.btn:active { transform: scale(0.98); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+.btn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; flex-shrink: 0; }
+.btn-primary { background: var(--text); color: var(--bg); border-color: var(--text); }
+.btn-primary:hover { background: #2e2b28; }
+.btn-accent { background: var(--accent); color: white; border-color: var(--accent); }
+.btn-accent:hover { background: var(--accent-dark); border-color: var(--accent-dark); }
+.btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 24px; }
+
+/* Results */
+.results-block { display: none; }
+.results-block.show { display: block; }
+
+.label { font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 12px; }
+
+.meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--border); border-radius: var(--radius); border: 1px solid var(--border); overflow: hidden; margin-bottom: 22px; }
+.meta-cell { background: var(--surface); padding: 13px 17px; }
+.meta-cell-lbl { font-size: 11px; color: var(--text-dim); font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 3px; }
+.meta-cell-val { font-size: 14px; color: var(--text); font-weight: 500; }
+
+.preview-box {
+  background: var(--surface-alt); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 15px 17px;
+  font-size: 12.5px; line-height: 1.72; color: var(--text-mid);
+  max-height: 170px; overflow-y: auto; white-space: pre-wrap; margin-bottom: 22px;
+}
+
+.slide-list { display: flex; flex-direction: column; gap: 2px; margin-bottom: 4px; }
+.sl-item { display: flex; align-items: baseline; gap: 10px; padding: 8px 13px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; }
+.sl-n { font-size: 11px; color: var(--text-dim); min-width: 20px; }
+.sl-t { color: var(--text); flex: 1; }
+.sl-w { font-size: 11px; color: var(--text-dim); }
+.sl-w.has { color: var(--accent); }
+
+/* AI rewrite panel */
+.ai-panel {
+  background: var(--accent-light); border: 1px solid #EACEC4;
+  border-radius: var(--radius); padding: 20px 22px;
+}
+.ai-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.ai-icon {
+  width: 28px; height: 28px; background: var(--accent); border-radius: 6px;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.ai-icon svg { width: 15px; height: 15px; fill: white; }
+.ai-title { font-size: 14px; font-weight: 500; }
+.ai-desc { font-size: 13px; color: var(--text-mid); line-height: 1.55; margin-bottom: 14px; }
+.key-row { display: flex; gap: 8px; }
+.key-input {
+  flex: 1; padding: 9px 13px;
+  border: 1px solid var(--border-mid); border-radius: var(--radius-sm);
+  font-family: monospace; font-size: 13px; letter-spacing: 0.04em;
+  color: var(--text); background: var(--surface); outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.key-input::placeholder { font-family: var(--font-sans); letter-spacing: 0; color: var(--text-dim); }
+.key-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(204,120,92,0.12); }
+.key-hint { font-size: 11px; color: var(--text-dim); margin-top: 7px; }
+.key-hint a { color: var(--accent); text-decoration: none; }
+.key-hint a:hover { text-decoration: underline; }
+
+.rewrite-log {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 12px 14px;
+  font-family: monospace; font-size: 12px; color: var(--text-mid);
+  line-height: 1.7; max-height: 150px; overflow-y: auto;
+  margin-top: 12px; display: none;
+}
+.rewrite-log.show { display: block; }
+
+/* Size warning banner */
+.size-warn {
+  display: none; align-items: flex-start; gap: 10px;
+  padding: 12px 16px;
+  background: #FEF3C7; border: 1px solid #F59E0B;
+  border-radius: var(--radius); margin-top: 12px;
+  font-size: 13px; color: #78350F; line-height: 1.5;
+}
+.size-warn.show { display: flex; }
+.size-warn-icon { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+.size-warn strong { font-weight: 500; }
+.l-ok  { color: var(--green); }
+.l-run { color: var(--amber); }
+.l-err { color: var(--red);   }
+
+/* Toast */
+.toast {
+  position: fixed; bottom: 28px; left: 50%;
+  transform: translateX(-50%) translateY(70px);
+  background: var(--text); color: var(--bg);
+  padding: 9px 20px; border-radius: 100px;
+  font-size: 13px; font-weight: 500;
+  box-shadow: var(--shadow); z-index: 999;
+  pointer-events: none; white-space: nowrap;
+  transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 3px; }
+
+@media(max-width:580px){
+  .app-wrap{padding:28px 16px 64px}
+  .card-section{padding:20px}
+  .meta-grid{grid-template-columns:1fr}
+  .btn-row{flex-direction:column}
+  .btn{width:100%;justify-content:center}
+  .key-row{flex-direction:column}
+}
+</style>
+</head>
+<body>
+
+<div class="app-wrap">
+
+  <header class="app-header">
+    <div class="app-logo">
+      <div class="logo-mark">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 3L4 7.5V16.5L12 21L20 16.5V7.5L12 3Z" stroke="#FAF9F7" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M12 3V21M4 7.5L20 16.5M20 7.5L4 16.5" stroke="#FAF9F7" stroke-width="1.5"/>
+        </svg>
+      </div>
+      <span class="logo-wordmark">SCORM → PDF</span>
+    </div>
+    <p class="app-desc">Upload a SCORM package to extract its content and convert it into a readable PDF document. The tool works in two modes: <strong>basic extraction</strong> produces a structured PDF from the raw slide content, and <strong>prose rewrite</strong> uses Claude to rewrite that content as flowing, readable paragraphs — similar to a reading guide or course handbook. The rewrite feature requires your own <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none;">Anthropic API key</a>.</p>
+  </header>
+
+  <!-- Step 1 -->
+  <div class="card">
+    <div class="card-section">
+      <div class="step-row">
+        <div class="step-badge active" id="s1badge">1</div>
+        <span class="step-heading">Upload your SCORM package</span>
+      </div>
+
+      <!-- IP ownership -->
+      <div class="ip-label" id="ipLabel" onclick="toggleIP()">
+        <div class="ip-box-vis">
+          <svg class="ip-check-mark" width="10" height="8" viewBox="0 0 10 8" fill="none">
+            <path d="M1 3.5L3.8 6.5L9 1" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="ip-copy">
+          <strong>I confirm I own or have permission to process this content.</strong>
+          I understand this file contains intellectual property and I have the rights or authorisation to extract, process, and redistribute the content it contains.
+        </div>
+      </div>
+
+      <!-- Drop zone -->
+      <div class="drop-zone locked" id="dropZone" onclick="dzClick()">
+        <input type="file" id="fileInput" accept=".zip">
+        <div class="drop-icon-wrap">
+          <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </div>
+        <div class="drop-title">Drop your SCORM .zip file here</div>
+        <div class="drop-sub">Articulate Storyline, Rise, and standard SCORM packages supported</div>
+        <div class="drop-locked-note">⚠ Please confirm IP ownership above before uploading</div>
+      </div>
+
+      <div class="status-bar">
+        <div class="dot" id="dot"></div>
+        <span id="statusMsg">Confirm IP ownership above, then upload your file.</span>
+      </div>
+      <div class="prog-wrap" id="progWrap"><div class="prog-bar" id="progBar"></div></div>
+      <div class="size-warn" id="sizeWarn"><span class="size-warn-icon">⚠</span><span id="sizeWarnMsg"><strong>Large file detected.</strong> This package may take longer to process and could fail on devices with limited memory. Only text content is extracted — videos, images and other assets are not read into memory.</span></div>
+    </div>
+  </div>
+
+  <!-- Step 2 + 3 (results) -->
+  <div class="results-block" id="resultsBlock">
+    <div class="card">
+
+      <!-- Extracted metadata -->
+      <div class="card-section">
+        <div class="step-row">
+          <div class="step-badge" id="s2badge">2</div>
+          <span class="step-heading">Extracted content</span>
+        </div>
+        <div class="meta-grid" id="metaGrid"></div>
+        <div class="label">Content preview</div>
+        <div class="preview-box" id="previewBox"></div>
+        <div class="label">Slides</div>
+        <div class="slide-list" id="slideList"></div>
+      </div>
+
+      <!-- AI rewrite -->
+      <div class="card-section">
+        <div class="step-row">
+          <div class="step-badge" id="s3badge">3</div>
+          <span class="step-heading">Rewrite as readable prose</span>
+          <span class="step-note">optional · uses Claude API</span>
+        </div>
+
+        <div class="ai-panel">
+          <div class="ai-header">
+            <div class="ai-icon">
+              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" stroke="white" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div class="ai-title">AI-powered prose rewrite</div>
+          </div>
+          <p class="ai-desc">Claude will rewrite each section — turning raw slide fragments, bullet points, and labels into clear, flowing paragraphs suitable as a reading alternative to the course. <strong>This feature requires your own Anthropic API key.</strong> You can get one at <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener" style="color:var(--accent-dark);">console.anthropic.com</a> — usage is billed directly to your Anthropic account. Without a key, you can still download a basic structured PDF using the extracted slide text.</p>
+          <div class="key-row">
+            <input class="key-input" type="password" id="apiKey" placeholder="sk-ant-api03-…  (Anthropic API key)">
+            <button class="btn btn-accent" id="rewriteBtn" onclick="startRewrite()">
+              <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+              Rewrite
+            </button>
+          </div>
+          <p class="key-hint">Used only in this browser session, never stored. Get a key at <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>.</p>
+          <div class="rewrite-log" id="rwLog"></div>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="downloadPdf()">
+            <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Download PDF
+          </button>
+          <button class="btn" onclick="resetTool()">
+            <svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4"/></svg>
+            Start over
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+'use strict';
+
+var G = { ipOk: false, slides: [], rewritten: [], meta: {}, ready: false, rwDone: false };
+
+function el(id){ return document.getElementById(id); }
+
+// ── IP checkbox ──────────────────────────────────────────────────────────
+function toggleIP(){
+  G.ipOk = !G.ipOk;
+  el('ipLabel').classList.toggle('checked', G.ipOk);
+  el('dropZone').classList.toggle('locked', !G.ipOk);
+  setSt(G.ipOk ? 'Ready — drop your SCORM .zip file below.' : 'Confirm IP ownership above, then upload your file.', '');
+}
+
+// ── Drop zone ────────────────────────────────────────────────────────────
+function dzClick(){ if(G.ipOk) el('fileInput').click(); }
+
+var dz = el('dropZone');
+dz.addEventListener('dragover', function(e){ e.preventDefault(); if(G.ipOk) dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave', function(){ dz.classList.remove('drag-over'); });
+dz.addEventListener('drop', function(e){
+  e.preventDefault(); dz.classList.remove('drag-over');
+  if(!G.ipOk) return;
+  if(e.dataTransfer.files[0]) go(e.dataTransfer.files[0]);
+});
+el('fileInput').addEventListener('change', function(e){ if(e.target.files[0]) go(e.target.files[0]); });
+
+// ── Status helpers ───────────────────────────────────────────────────────
+function setSt(msg, state){
+  el('statusMsg').textContent = msg;
+  el('dot').className = 'dot' + (state ? ' '+state : '');
+}
+function setProg(pct){ el('progWrap').classList.add('show'); el('progBar').style.width = pct+'%'; }
+function clearProg(){ el('progWrap').classList.remove('show'); el('progBar').style.width='0%'; }
+function toast(msg){ var t=el('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(function(){ t.classList.remove('show'); },2800); }
+
+// ── File type filter: only decompress files we actually need ─────────────
+// Skips images, video, audio, fonts, CSS and Storyline lib scripts so
+// JSZip never inflates the bulk of large packages into memory.
+var SKIP_EXTS = /\.(png|jpg|jpeg|gif|svg|webp|mp4|mp3|m4v|m4a|webm|ogg|wav|woff|woff2|ttf|eot|otf|css|swf|flv)$/i;
+var SKIP_PATHS = /^(html5\/lib\/|lms\/|mobile\/|story_content\/video_|story_content\/audio_)/i;
+
+function fmtSize(bytes){
+  if(bytes>=1024*1024*1024) return (bytes/1024/1024/1024).toFixed(1)+' GB';
+  if(bytes>=1024*1024) return (bytes/1024/1024).toFixed(0)+' MB';
+  return (bytes/1024).toFixed(0)+' KB';
+}
+
+// ── Main processing ──────────────────────────────────────────────────────
+async function go(file){
+  if(!file.name.toLowerCase().endsWith('.zip')){ setSt('Please upload a .zip SCORM package.','err'); return; }
+  G.slides=[]; G.rewritten=[]; G.meta={}; G.ready=false; G.rwDone=false;
+  el('resultsBlock').classList.remove('show');
+  el('fileInput').value='';
+
+  // Size check — warn or block before touching JSZip
+  var MB = file.size/(1024*1024);
+  var warnEl = el('sizeWarn');
+  warnEl.classList.remove('show');
+
+  if(MB > 500){
+    setSt('File is '+fmtSize(file.size)+' — too large to process safely in a browser. Limit is ~500 MB.','err');
+    return;
+  }
+  if(MB > 80){
+    el('sizeWarnMsg').innerHTML = '<strong>Large file ('+fmtSize(file.size)+') detected.</strong> Processing may take a minute and requires a device with at least 2 GB of free RAM. Images, video and other non-text assets will be skipped to reduce memory usage.';
+    warnEl.classList.add('show');
+  }
+
+  setSt('Reading ZIP…','busy'); setProg(10);
+  try{
+    var zip = await JSZip.loadAsync(file);
+    setProg(22);
+
+    // Find manifest
+    var mf=null;
+    zip.forEach(function(p,f){ if(!mf && p.toLowerCase().endsWith('imsmanifest.xml') && !p.includes('__MACOSX')) mf=f; });
+    if(!mf){ setSt('No imsmanifest.xml found — is this a valid SCORM package?','err'); return; }
+
+    var mStr = await mf.async('string');
+    var parser = new DOMParser();
+    var xml = parser.parseFromString(mStr,'text/xml');
+    G.meta = getMeta(xml, file.name);
+    G.meta.fileSize = fmtSize(file.size);
+    setProg(38); setSt('Detecting package format…','busy');
+
+    // Detect Articulate Storyline — only read one small JS file to check
+    var jsList=[];
+    zip.forEach(function(p){
+      if(p.startsWith('html5/data/js/') && p.endsWith('.js') && !p.includes('__MACOSX') && !SKIP_EXTS.test(p)) jsList.push(p);
+    });
+    var isArt=false;
+    if(jsList.length>3){ var s=await zip.file(jsList[0]).async('string'); if(s.includes('globalProvideData')) isArt=true; }
+    G.meta.type = isArt ? 'Articulate Storyline' : 'Standard SCORM';
+
+    setProg(52); setSt('Extracting slide content…','busy');
+    G.slides = isArt ? await extractArt(zip,jsList) : await extractStd(zip,xml,mf.name);
+    setProg(88);
+
+    if(!G.slides.length){ setSt('No readable text found. The course may be image or video only.','err'); return; }
+
+    setProg(100); setTimeout(clearProg,700);
+    var wc = words(G.slides);
+    setSt(G.slides.length+' slides extracted · ~'+wc.toLocaleString()+' words · '+fmtSize(file.size),'ok');
+    el('s1badge').className='step-badge done';
+    el('s2badge').className='step-badge active';
+
+    renderResults();
+    el('resultsBlock').classList.add('show');
+    el('resultsBlock').scrollIntoView({behavior:'smooth',block:'start'});
+    G.ready=true;
+
+  } catch(err){ setSt('Error: '+err.message,'err'); console.error(err); }
+}
+
+// ── Metadata ─────────────────────────────────────────────────────────────
+function getMeta(xml,filename){
+  var title='';
+  var ot=xml.querySelector('organization > title');
+  if(ot) title=ot.textContent.trim();
+  if(!title){ var t=xml.querySelector('title'); if(t) title=t.textContent.trim(); }
+  if(!title) title=filename.replace(/\.zip$/i,'');
+  var sc=(xml.querySelector('schema')||{textContent:''}).textContent.trim();
+  var sv=(xml.querySelector('schemaversion')||{textContent:''}).textContent.trim();
+  var dc=(xml.querySelector('description')||{textContent:''}).textContent.trim();
+  return {title:title, schema:[sc,sv].filter(Boolean).join(' '), description:dc};
+}
+
+// ── Articulate extraction ────────────────────────────────────────────────
+async function extractArt(zip,jsList){
+  var out=[];
+  var SKIP=['Quiz Results','Results Slide','Help | ','| %_player'];
+  // Only read slide data files — skip minified library scripts which are large and contain no content
+  var SKIP_JS = /\.(min\.js)$|ds-bootstrap|ds-slides|ds-frame|jquery|modernizr|require/i;
+  for(var i=0;i<jsList.length;i++){
+    if(SKIP_JS.test(jsList[i])) continue;
+    var c=await zip.file(jsList[i]).async('string');
+    if(!c.includes('globalProvideData')) continue;
+    var tm=c.match(/"title":"(.*?)"/);
+    var title=tm?tm[1]:'';
+    if(SKIP.some(function(k){return title.includes(k);})) continue;
+    var ms=c.match(/"altText":"(.*?)"(?=[,}])/g)||[];
+    var texts=[];
+    ms.forEach(function(m){
+      var t=m.replace(/^"altText":"/, '').replace(/"$/, '');
+      t=t.replace(/\\\\n/g,'\n').replace(/\\n/g,'\n').replace(/\\\\r/g,'').replace(/\\r/g,'').replace(/\\\\"/g,'"').replace(/\\'/g,"'").trim();
+      if(/\.(jpg|png|svg|mp4|swf|gif)$/i.test(t)) return;
+      if(/^(Rectangle|Pentagon|Group|Oval|Circle|Line|Arrow|Button|Text Box|Freeform|Round Same|kisspng|shutterstock)/i.test(t)) return;
+      if(t.includes('%_player')) return;
+      if(t===title) return;
+      if(t.length<10) return;
+      texts.push(t);
+    });
+    var seen={},uniq=[];
+    texts.forEach(function(t){ var k=t.slice(0,80); if(!seen[k]){seen[k]=1;uniq.push(t);} });
+    if(title) out.push({title:title,texts:uniq});
+  }
+  return out;
+}
+
+// ── Standard SCORM extraction ────────────────────────────────────────────
+async function extractStd(zip,xml,mfPath){
+  var dir=mfPath.replace('imsmanifest.xml','');
+  var hrefs=[],hmap={};
+  xml.querySelectorAll('resource').forEach(function(r){
+    var h=r.getAttribute('href'),id=r.getAttribute('identifier')||'';
+    if(h&&/\.html?(\?.*)?$/i.test(h)){ var c=h.split('?')[0]; hrefs.push(c); if(id)hmap[id]=c; }
+  });
+  var seen={},u=[];
+  hrefs.forEach(function(h){if(!seen[h]){seen[h]=1;u.push(h);}});
+  hrefs=u;
+  if(!hrefs.length) zip.forEach(function(p){if(/\.html?$/i.test(p)&&!p.includes('__MACOSX'))hrefs.push(p);});
+  var items=[];
+  xml.querySelectorAll('item').forEach(function(it){
+    var t=it.querySelector('title');
+    if(t&&t.textContent.trim()) items.push({title:t.textContent.trim(),idref:it.getAttribute('identifierref')||''});
+  });
+  var out=[];
+  for(var i=0;i<hrefs.length;i++){
+    var href=hrefs[i],f=null;
+    [href,dir+href,decodeURIComponent(href),dir+decodeURIComponent(href)].forEach(function(c){if(!f)f=zip.file(c);});
+    if(!f) continue;
+    var html=await f.async('string');
+    var text=stripHtml(html);
+    if(text.length>30){
+      var m=items.find(function(it){return it.idref&&hmap[it.idref]===href;});
+      var t2=m?m.title:href.split('/').pop().replace(/\.html?$/i,'').replace(/[-_]/g,' ');
+      out.push({title:t2,texts:[text]});
+    }
+  }
+  return out;
+}
+
+function stripHtml(h){
+  h=h.replace(/<script[\s\S]*?<\/script>/gi,'').replace(/<style[\s\S]*?<\/style>/gi,'');
+  return h.replace(/<[^>]+>/g,' ').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/\s{2,}/g,' ').trim();
+}
+
+function words(slides){ return slides.reduce(function(a,s){return a+s.texts.join(' ').split(/\s+/).filter(Boolean).length;},0); }
+
+// ── Render results ────────────────────────────────────────────────────────
+function renderResults(){
+  var m=G.meta, sl=G.slides, wc=words(sl);
+  var cells=[['Course title',m.title],['Package type',m.type],['File size',m.fileSize||'—'],['Slides extracted',sl.length],['Approx. words','~'+wc.toLocaleString()]];
+  el('metaGrid').innerHTML=cells.map(function(c){return '<div class="meta-cell"><div class="meta-cell-lbl">'+c[0]+'</div><div class="meta-cell-val">'+esc(String(c[1]))+'</div></div>';}).join('');
+
+  var prev=sl.slice(0,3).map(function(s){
+    return '['+s.title+']\n'+s.texts.join('\n').slice(0,260)+(s.texts.join('\n').length>260?'…':'');
+  }).join('\n\n—\n\n');
+  el('previewBox').textContent=prev;
+
+  var shown=sl.slice(0,24);
+  el('slideList').innerHTML=shown.map(function(s,i){
+    var w=s.texts.join(' ').split(/\s+/).filter(Boolean).length;
+    return '<div class="sl-item"><span class="sl-n">'+(i+1)+'</span><span class="sl-t">'+esc(s.title)+'</span><span class="sl-w'+(w>0?' has':'')+'">'+( w>0?w+'w':'—' )+'</span></div>';
+  }).join('')+(sl.length>24?'<div class="sl-item"><span class="sl-n"></span><span class="sl-t" style="color:var(--text-dim)">…and '+(sl.length-24)+' more</span></div>':'');
+}
+
+// ── AI rewrite ────────────────────────────────────────────────────────────
+async function startRewrite(){
+  var key=el('apiKey').value.trim();
+  if(!key){ toast('Enter your Anthropic API key first'); return; }
+  if(!key.startsWith('sk-ant')&&!key.startsWith('sk-')){ toast('API key format looks unexpected'); }
+  if(!G.ready){ toast('Extract a SCORM file first'); return; }
+
+  el('rewriteBtn').disabled=true;
+  el('s3badge').className='step-badge active';
+  var log=el('rwLog');
+  log.classList.add('show'); log.innerHTML='';
+
+  function lg(msg,cls){ var d=document.createElement('div'); if(cls)d.className=cls; d.textContent=msg; log.appendChild(d); log.scrollTop=log.scrollHeight; }
+
+  G.rewritten=[];
+
+  // Merge consecutive same-title slides
+  var sections=[];
+  G.slides.forEach(function(s){
+    var last=sections[sections.length-1];
+    if(last&&last.title===s.title) last.texts=last.texts.concat(s.texts);
+    else sections.push({title:s.title,texts:s.texts.slice()});
+  });
+  var content=sections.filter(function(s){return s.texts.join(' ').split(/\s+/).filter(Boolean).length>10;});
+
+  lg('Rewriting '+content.length+' sections using Claude…','l-run');
+
+  for(var i=0;i<content.length;i++){
+    var sec=content[i];
+    lg('('+( i+1)+'/'+content.length+') '+sec.title+'…','l-run');
+    try{
+      var raw=sec.texts.join('\n').slice(0,3200);
+      var prompt='You are converting extracted eLearning slide content into a readable document section.\n\nCourse: "'+G.meta.title+'"\nSection: "'+sec.title+'"\n\nRaw extracted text:\n---\n'+raw+'\n---\n\nRewrite this as 2–4 clear flowing paragraphs of professional prose. Rules:\n- No bullet points or lists\n- Do not repeat the section title in your response\n- Only use information present in the source text\n- Neutral, informative tone suitable for workplace training documentation\n- Write the paragraphs only, nothing else';
+
+      var res=await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+        body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:1024,messages:[{role:'user',content:prompt}]})
+      });
+
+      if(!res.ok){
+        var eb=await res.json().catch(function(){return{};});
+        var em=(eb.error&&eb.error.message)?eb.error.message:'HTTP '+res.status;
+        lg('  ✗ '+em,'l-err');
+        G.rewritten.push({title:sec.title,prose:sec.texts.join('\n')});
+        continue;
+      }
+      var data=await res.json();
+      var prose=data.content&&data.content[0]&&data.content[0].text?data.content[0].text.trim():sec.texts.join('\n');
+      G.rewritten.push({title:sec.title,prose:prose});
+      lg('  ✓','l-ok');
+    } catch(err){
+      lg('  ✗ '+err.message,'l-err');
+      G.rewritten.push({title:sec.title,prose:sec.texts.join('\n')});
+    }
+  }
+
+  lg('Complete — click "Download PDF" to export.','l-ok');
+  G.rwDone=true;
+  el('rewriteBtn').disabled=false;
+  el('s3badge').className='step-badge done';
+  toast('Rewrite complete — ready to download');
+}
+
+// ── PDF download ──────────────────────────────────────────────────────────
+function downloadPdf(){
+  if(!G.ready){ toast('No content to download yet'); return; }
+  var sections;
+  if(G.rwDone&&G.rewritten.length){
+    sections=G.rewritten;
+  } else {
+    var merged=[];
+    G.slides.forEach(function(s){
+      var last=merged[merged.length-1];
+      if(last&&last.title===s.title) last.texts=last.texts.concat(s.texts);
+      else merged.push({title:s.title,texts:s.texts.slice()});
+    });
+    sections=merged.map(function(s){return{title:s.title,prose:s.texts.join('\n')};});
+  }
+  var pdf=buildPdf(sections);
+  var blob=new Blob([pdf],{type:'application/pdf'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url;
+  a.download=(G.meta.title||'course').replace(/[^a-zA-Z0-9\s]/g,'-').replace(/\s+/g,'-').toLowerCase()+'.pdf';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function(){URL.revokeObjectURL(url);},2000);
+  toast('PDF downloaded');
+}
+
+// ── PDF builder ───────────────────────────────────────────────────────────
+function buildPdf(sections){
+  var W=595,H=842,ML=62,MR=62,MB=72,USABLE=W-ML-MR;
+  var objs=[];
+  function ao(s){objs.push(s);return objs.length;}
+  ao('<<\n/Type /Catalog\n/Pages 2 0 R\n>>');
+  ao('');
+
+  var pages=[],cur=[],y=H-58;
+  function np(){pages.push(cur);cur=[];y=H-58;}
+
+  function cpl(sz){return Math.floor(USABLE/(sz*0.525));}
+
+  function line(text,sz,bold,r,g,b){
+    if(!sz)sz=10;
+    var lh=sz+(sz>14?8:5);
+    if(y-lh<MB)np();
+    var ri=r!==undefined?r:26, gi=g!==undefined?g:24, bi=b!==undefined?b:20;
+    var fn=bold?'F2':'F1';
+    cur.push('BT\n/'+fn+' '+sz+' Tf\n'+(ri/255).toFixed(3)+' '+(gi/255).toFixed(3)+' '+(bi/255).toFixed(3)+' rg\n'+ML+' '+y+' Td\n('+safe(text)+') Tj\nET');
+    y-=lh;
+  }
+
+  function para(text,sz,bold,r,g,b){
+    var c=cpl(sz);
+    text.split('\n').forEach(function(ln){
+      ln=ln.trim(); if(!ln){y-=(sz+3);return;}
+      var ws=ln.split(' '),cur2='';
+      ws.forEach(function(w){
+        if((cur2+' '+w).trim().length>c){if(cur2)line(cur2.trim(),sz,bold,r,g,b);cur2=w;}
+        else cur2=cur2?cur2+' '+w:w;
+      });
+      if(cur2.trim())line(cur2.trim(),sz,bold,r,g,b);
+    });
+  }
+
+  function hr(){
+    y-=6; if(y-3<MB)np();
+    cur.push('0.91 0.89 0.86 RG\n0.5 w\n'+ML+' '+y+' m\n'+(W-MR)+' '+y+' l\nS');
+    y-=10;
+  }
+
+  // Title page content
+  para(G.meta.title||'Course Document',22,true);
+  y-=3;
+  if(G.meta.description) para(G.meta.description.slice(0,160),11,false,92,88,82);
+  var info=[G.meta.type,G.meta.schema].filter(Boolean).join(' · ');
+  if(info) para(info+' · Exported '+new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}),10,false,140,136,130);
+  y-=6; hr();
+
+  sections.forEach(function(s){
+    if(!s.prose||s.prose.trim().length<5) return;
+    y-=10;
+    para(s.title,13,true);
+    y-=3;
+    // Split prose into paragraphs
+    var ps=s.prose.split(/\n{2,}/).map(function(p){return p.replace(/\n/g,' ').trim();}).filter(function(p){return p.length>4;});
+    if(!ps.length) ps=[s.prose.replace(/\n/g,' ').trim()];
+    ps.forEach(function(p){para(p,10,false);y-=3;});
+    y-=4;
+  });
+  if(cur.length)np();
+
+  // ── Footer helper — appended to every page's stream ──
+  var TOOL_URL = 'https://iHASCO.github.io/scorm-to-pdf';
+  var footerY = 28;
+  var footerLeft = safe('Generated from a SCORM package using SCORM \u2192 PDF Tool');
+  var footerRight = safe(TOOL_URL);
+
+  function makeFooter(pageNum, total) {
+    var pageLabel = safe('Page ' + pageNum + ' of ' + total);
+    return (
+      // Hairline rule above footer
+      '0.82 0.80 0.78 RG\n0.4 w\n' + ML + ' ' + (footerY+12) + ' m\n' + (W-MR) + ' ' + (footerY+12) + ' l\nS\n' +
+      // Left: attribution text
+      'BT\n/F1 8 Tf\n0.60 0.58 0.56 rg\n' + ML + ' ' + footerY + ' Td\n(' + footerLeft + ') Tj\nET\n' +
+      // Centre: URL in accent colour (terracotta)
+      'BT\n/F1 8 Tf\n0.80 0.47 0.36 rg\n' + ML + ' ' + (footerY-10) + ' Td\n(' + footerRight + ') Tj\nET\n' +
+      // Right: page number
+      'BT\n/F1 8 Tf\n0.60 0.58 0.56 rg\n' + (W-MR-50) + ' ' + footerY + ' Td\n(' + pageLabel + ') Tj\nET'
+    );
+  }
+
+  // Collect page object IDs
+  var pageIds=[];
+  pages.forEach(function(ops, idx){
+    var footerStream = makeFooter(idx+1, pages.length);
+    var stream = ops.join('\n') + '\n' + footerStream;
+    var cid=ao('<<\n/Length '+stream.length+'\n>>\nstream\n'+stream+'\nendstream');
+    var pid=ao('<<\n/Type /Page\n/Parent 2 0 R\n/MediaBox [0 0 '+W+' '+H+']\n/Contents '+cid+' 0 R\n/Resources <<\n/Font <<\n/F1 <<\n/Type /Font\n/Subtype /Type1\n/BaseFont /Helvetica\n>>\n/F2 <<\n/Type /Font\n/Subtype /Type1\n/BaseFont /Helvetica-Bold\n>>\n>>\n>>\n>>');
+    pageIds.push(pid);
+  });
+
+  objs[1]='<<\n/Type /Pages\n/Kids ['+pageIds.map(function(id){return id+' 0 R';}).join(' ')+']\n/Count '+pageIds.length+'\n>>';
+
+  var out='%PDF-1.4\n',offs=[];
+  objs.forEach(function(o,i){offs.push(out.length);out+=(i+1)+' 0 obj\n'+o+'\nendobj\n';});
+  var xr=out.length;
+  out+='xref\n0 '+(objs.length+1)+'\n0000000000 65535 f \n';
+  offs.forEach(function(o){out+=('0000000000'+o).slice(-10)+' 00000 n \n';});
+  out+='trailer\n<<\n/Size '+(objs.length+1)+'\n/Root 1 0 R\n>>\nstartxref\n'+xr+'\n%%EOF';
+  return out;
+}
+
+function safe(s){return String(s).replace(/[^\x20-\x7E]/g,' ').replace(/\\/g,'\\\\').replace(/\(/g,'\\(').replace(/\)/g,'\\)');}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+// ── Reset ─────────────────────────────────────────────────────────────────
+function resetTool(){
+  G={ipOk:false,slides:[],rewritten:[],meta:{},ready:false,rwDone:false};
+  el('fileInput').value=''; el('apiKey').value='';
+  el('ipLabel').classList.remove('checked');
+  el('dropZone').classList.add('locked');
+  el('rwLog').classList.remove('show'); el('rwLog').innerHTML='';
+  el('rewriteBtn').disabled=false;
+  el('sizeWarn').classList.remove('show');
+  clearProg();
+  setSt('Confirm IP ownership above, then upload your file.','');
+  el('s1badge').className='step-badge active';
+  el('s2badge').className='step-badge';
+  el('s3badge').className='step-badge';
+  el('resultsBlock').classList.remove('show');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+</script>
+</body>
+</html>
