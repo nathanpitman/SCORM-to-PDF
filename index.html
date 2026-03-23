@@ -813,9 +813,9 @@ function buildPdf(sections){
   if(cur.length)np();
 
   // ── Footer helper — appended to every page's stream ──
-  var TOOL_URL = 'https://iHASCO.github.io/scorm-to-pdf';
+  var TOOL_URL = 'https://nathanpitman.github.io/scorm-to-pdf';
   var footerY = 28;
-  var footerLeft = safe('Generated from a SCORM package using SCORM \u2192 PDF Tool');
+  var footerLeft = safe('Generated from a SCORM package using SCORM to PDF Tool');
   var footerRight = safe(TOOL_URL);
 
   function makeFooter(pageNum, total) {
