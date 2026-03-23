@@ -4,7 +4,7 @@ A zero-dependency browser tool that extracts text content from SCORM eLearning p
 
 Built for iHasco (Citation Group) to support AI course creation workflows where SCORM packages need to be converted to readable documents.
 
-**Live tool:** https://nathanpitman.github.io/scorm-to-pdf
+**Live tool:** https://nathanpitman.github.io/SCORM-to-PDF
 
 ---
 
