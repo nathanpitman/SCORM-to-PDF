@@ -4,7 +4,7 @@ A zero-dependency browser tool that extracts text content from SCORM eLearning p
 
 Built for iHasco (Citation Group) to support AI course creation workflows where SCORM packages need to be converted to readable documents.
 
-**Live tool:** https://nathanpitman.github.io/SCORM-to-PDF
+**Live tool:** https://nathanpitman.github.io/iHasco-SCORM-to-PDF-Transformer
 
 ---
 
@@ -49,12 +49,12 @@ A PDF is generated entirely in JavaScript — no external PDF library is used. T
 
 ### Online
 
-Visit **https://nathanpitman.github.io/ihasco-scorm-to-pdf-transformer** — no setup needed.
+Visit **https://nathanpitman.github.io/iHasco-SCORM-to-PDF-Transformer** — no setup needed.
 
 ### Local
 
 ```bash
-git clone https://github.com/nathanpitman/scorm-to-pdf.git
+git clone https://github.com/nathanpitman/iHasco-SCORM-to-PDF-Transformer.git
 cd scorm-to-pdf
 # Open index.html directly, or serve it:
 python -m http.server 8000
