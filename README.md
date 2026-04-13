@@ -49,7 +49,7 @@ A PDF is generated entirely in JavaScript — no external PDF library is used. T
 
 ### Online
 
-Visit **https://nathanpitman.github.io/scorm-to-pdf** — no setup needed.
+Visit **https://nathanpitman.github.io/ihasco-scorm-to-pdf-transformer** — no setup needed.
 
 ### Local
 
