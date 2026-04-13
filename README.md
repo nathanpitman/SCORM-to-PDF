@@ -1,4 +1,4 @@
-# SCORM-to-PDF
+# iHasco SCORM-to-PDF Tranformer
 
 A zero-dependency browser tool that extracts text content from SCORM eLearning packages and generates downloadable PDF documents — with optional AI-powered prose rewriting via the Claude API.
 
